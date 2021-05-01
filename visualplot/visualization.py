@@ -1,5 +1,6 @@
+import numpy as np
 from matplotlib.animation import FuncAnimation, PillowWriter
-from matplotlib.widgets import Button
+from matplotlib.widgets import Button, Slider
 
 from visualplot.timeline import Timeline
 import matplotlib.pyplot as plt
@@ -102,3 +103,55 @@ class Visualization:
         """
         self.timeline.index = -1  # required for proper starting point for save
         self.animation.save(*args, **kwargs)
+
+    def timeline_slider(self, text='Time', ax=None, valfmt=None, color=None):
+        """
+        Create a timline slider.
+
+        :param text: str, optional
+            The text to display for the slider. Defaults to 'Time'
+        :param ax: matplotlib.axes.Axes, optional
+            The matplotlib axes to attach the slider to.
+        :param valfmt: str, optional
+            a format specifier used to print the time
+        :param color:
+            The color of the slider.
+        :return: matplotlib.widget.Slider object
+        """
+        if ax is None:
+            adjust_plot = {'bottom': .2}
+            rect = [.18, .05, .5, .03]
+
+            plt.subplots_adjust(**adjust_plot)
+            self.slider_ax = plt.axes(rect)
+        else:
+            self.slider_ax = ax
+
+        if valfmt is None:
+            if (np.issubdtype(self.timeline.t.dtype, np.datetime64)
+                    or np.issubdtype(self.timeline.t.dtype, np.timedelta64)):
+                valfmt = '%s'
+            else:
+                valfmt = '%1.2f'
+
+        if self.timeline.log:
+            valfmt = f'$10^{valfmt}$'
+
+        self.slider = Slider(
+            self.slider_ax, text, 0, self.timeline._len - 1,
+            valinit=0,
+            valfmt=(valfmt + self.timeline.units),
+            valstep=1, color=color
+        )
+        self._has_slider = True
+
+        def set_time(t):
+            self.timeline.index = int(self.slider.val)
+            self.slider.valtext.set_text(
+                self.slider.valfmt % (self.timeline[self.timeline.index]))
+            if self._pause:
+                for block in self.blocks:
+                    block._update(self.timeline.index)
+                self.fig.canvas.draw()
+
+        self.slider.on_changed(set_time)
