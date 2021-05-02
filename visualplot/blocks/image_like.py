@@ -82,3 +82,44 @@ class Pcolormesh(Block):
         slice_c = [slice(-1)] * 3  # weird thing to make animation work
         slice_c[self.t_axis] = i
         return tuple(slice_c)
+
+
+class Imshow(Block):
+    """ Animates a series of images """
+
+    def __init__(self, images, ax=None, t_axis=0, **kwargs):
+        """
+        :param images: list of 2D/3D arrays, or a 3D or 4D array
+            matplotlib considers arrays of the shape
+            (n,m), (n,m,3), and (n,m,4) to be images.
+            Images is either a list of arrays of those shapes,
+            or an array of shape (T,n,m), (T,n,m,3), or (T,n,m,4)
+            where T is the length of the time axis (assuming ``t_axis=0``).
+        :param ax: matplotlib.axes.Axes, optional
+            The matplotlib axes to attach the block to.
+            Defaults to matplotlib.gca()
+        :param t_axis: int, optional
+            The axis of the array that represents time. Defaults to 0.
+            No effect if images is a list
+
+        This block accepts additional keyword arguments to be passed to
+        :meth:`matplotlib.axes.Axes.imshow`
+        """
+        self.ims = np.asanyarray(images)
+        super().__init__(ax, t_axis)
+
+        self._is_list = isinstance(images, list)
+        self._dim = len(self.ims.shape)
+
+        slice_c = self._make_slice(0, self._dim)
+        self.im = self.ax.imshow(self.ims[slice_c], **kwargs)
+
+    def _update(self, i):
+        slice_c = self._make_slice(i, self._dim)
+        self.im.set_array(self.ims[slice_c])
+        return self.im
+
+    def __len__(self):
+        if self._is_list:
+            return self.ims.shape[0]
+        return self.ims.shape[self.t_axis]
